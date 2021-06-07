@@ -57,5 +57,34 @@ class FloatCal(object):
     """
     浮点计算
     """
+    @staticmethod
+    def getRandomFloat(self, low : float = 0.0, high : float = 10.0) -> float:
+        """
+        获取一个随机浮点值范围【low，high）
+        :param low: 最小值 默认0.0
+        :param high: 最大值 默认10.0
+        :return: 一个范围内的随机浮点值
+        """
+        if low >= high:
+            return None
+        else:
+            return np.random.uniform(low, high)
+    @staticmethod
+    def getRandomFloatList(self, low:float = 0.0, high:float = 10.0, length:int = 10) -> list:
+        """
+        获取一个浮点值类型的随机列表  范围【low， high）
+        :param low: 最小值
+        :param high: 最大值
+        :param length: 列表长度
+        :return: 一个列表
+        """
+        ret = []
+        if low >= high or length <= 0:
+            return ret
+        else:
+            for i in range(0, length):
+                ret.append(self.getRandomFloat(low, high))
+            return ret
+
 if __name__ == "__main__":
     print(IntCal.getRandomIntMatrix())

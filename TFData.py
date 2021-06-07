@@ -49,6 +49,9 @@ def downData(url: str = None, filePath: str = None):
 
 
 class FieldHandler(object):
+    """
+    数据文件信息
+    """
     def __init__(self, train_file_path, test_file_path=None, category_columns=[], continuation_columns=[]):
         """
         train_file_path : 训练数据文件
@@ -66,27 +69,38 @@ class FieldHandler(object):
 
         if not isinstance(train_file_path, str):
             raise ValueError("rain file path must str")
+
         if os.path.exists(train_file_path):
             self.train_file_path = train_file_path
         else:
             raise OSError("train file path isn't exists!")
+
         if test_file_path:
             if os.path.exists(test_file_path):
                 self.test_file_path = test_file_path
             else:
                 raise OSError("test file path isn't exists!")
+
         self.read_data()
-        self.df[category_columns].fillna("-1", inplace=True)
+        #self.df[category_columns].fillna("-1", inplace=True)
+        self.df[category_columns] = self.df[category_columns].fillna("-1")
+        #self.df.fillna("-1", inplace=True)
 
         self.build_filed_dict()
-        print(self.field_dict, self.feature_nums)
+        #print(self.field_dict, self.feature_nums)
         self.build_standard_scaler()
-        print(self.field_dict, self.feature_nums)
+        #print(self.df.dtypes)
+        #print(self.df, self.standard_scaler.mean_, self.standard_scaler.scale_, self.standard_scaler.var_)
         self.field_nums = len(self.category_columns + self.continuation_columns)
+        #print(self.field_nums)
+        logging.info("特征展开数:{},特征数:{}".format(self.feature_nums, self.field_nums, ))
 
     def build_filed_dict(self):
+        """
+        展开为了稀疏特征
+        :return:
+        """
         for column in self.df.columns:
-            print(column)
             if column in self.category_columns:
                 cv = self.df[column].unique()
                 self.field_dict[column] = dict(zip(cv, range(self.feature_nums, self.feature_nums + len(cv))))
@@ -96,16 +110,23 @@ class FieldHandler(object):
                 self.feature_nums += 1
 
     def read_data(self):
+        """
+        读取文件信息，保存在属性df中
+        :return:
+        """
         if self.train_file_path and self.test_file_path:
-
             train_df = pd.read_csv(self.train_file_path)[self.category_columns + self.continuation_columns]
             test_df = pd.read_csv(self.test_file_path)[self.category_columns + self.continuation_columns]
             self.df = pd.concat([train_df, test_df])
         else:
             self.df = pd.read_csv(self.train_file_path)[self.category_columns + self.continuation_columns]
-            print("train data true,,,,,test data flase")
+            logging.info("train data true,,,,,test data flase")
 
     def build_standard_scaler(self):
+        """
+        对连续特征计算标准化参数
+        :return:
+        """
         if self.continuation_columns:
             self.standard_scaler = StandardScaler()
             self.standard_scaler.fit(self.df[self.continuation_columns].values)
@@ -123,13 +144,12 @@ def transformation_data(file_path: str, field_hander: FieldHandler, label=None):
     if label:
         if label in df_v.columns:
             labels = df_v[[label]].values.astype("float32")
-            print(labels[0:10])
         else:
             raise KeyError(f'label "{label}" isn\'t exists')
 
     df_v = df_v[field_hander.category_columns + field_hander.continuation_columns]
-    df_v[field_hander.category_columns].fillna("-1", inplace=True)
-    df_v[field_hander.continuation_columns].fillna(-999, inplace=True)
+    df_v[field_hander.category_columns] = df_v[field_hander.category_columns].fillna("-1")
+    df_v[field_hander.continuation_columns] = df_v[field_hander.continuation_columns].fillna(-999)
 
     if field_hander.standard_scaler:
         df_v[field_hander.continuation_columns] = field_hander.standard_scaler.transform(
@@ -137,13 +157,14 @@ def transformation_data(file_path: str, field_hander: FieldHandler, label=None):
     df_i = df_v.copy()
 
     for column in df_v.columns:
-        print(field_hander.field_dict[column], type(df_i[column]), column)
         if column in field_hander.category_columns:
             df_i[column] = df_i[column].map(field_hander.field_dict[column])
             df_v[column] = 1
         else:
             df_i[column] = field_hander.field_dict[column]
 
+    print(df_i)
+    print(df_v)
     df_v = df_v.values.astype("float32")
     df_i = df_i.values.astype("int32")
 
@@ -157,7 +178,7 @@ def transformation_data(file_path: str, field_hander: FieldHandler, label=None):
     return features, None
 
 
-def dataGenerate(path="./Dataset/train.csv"):
+def dataGenerate(path=None):
     df = pd.read_csv(path)
     df = df[['Pclass', "Sex", "SibSp", "Parch", "Fare", "Embarked", "Survived"]]
     class_columns = ['Pclass', "Sex", "SibSp", "Parch", "Embarked"]
@@ -189,9 +210,9 @@ def dataGenerate(path="./Dataset/train.csv"):
 
 
 def createTrainInputFN(features, label, batch_size=3, num_epochs=10):
-    # print(features[0:10], label[0:10], features.shape)
+    print(features, label[0:10], label.shape)
     dataset = tf.data.Dataset.from_tensor_slices((features, label))
-    # print("dataset top 2,,,,,,",list(dataset.as_numpy_iterator())[0:2])
+    print("dataset top 2,,,,,,",list(dataset.as_numpy_iterator())[0:2])
     dataset = dataset.shuffle(100, reshuffle_each_iteration=False)
     # print("shuffle top 2,,,,,",list(dataset.as_numpy_iterator())[0:2])
     dataset = dataset.repeat(num_epochs)
@@ -222,6 +243,8 @@ class HParams(object):
                  , epoches=100
                  , activation='relu'
                  , seed=20
+                 , category_columns = ['Pclass',"Sex","SibSp","Parch","Embarked"]
+                 , continuation_columns = ['Fare']
                  , field_nums=0
                  , feature_nums=0):
         self.model = model
@@ -242,6 +265,8 @@ class HParams(object):
         self.epoches = epoches
         self.activation = activation
         self.seed = seed
+        self.category_columns = category_columns
+        self.continuation_columns = continuation_columns
         self.field_nums = field_nums
         self.feature_nums = feature_nums
 
