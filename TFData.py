@@ -203,6 +203,9 @@ def dataGenerate(path=None):
             x_t = ont_x
         else:
             x_t = np.hstack((x_t, ont_x))
+    standardScaler = StandardScaler()
+    standardScaler.fit(train_x[continuous_columns].values)
+    train_x[continuous_columns] = standardScaler.transform(train_x[continuous_columns].values)
     x_t = np.hstack((x_t, train_x[continuous_columns].values.reshape(-1, 1)))
     files_dict[s] = index + 1
 
@@ -210,17 +213,21 @@ def dataGenerate(path=None):
 
 
 def createTrainInputFN(features, label, batch_size=3, num_epochs=10):
-    print(features, label[0:10], label.shape)
-    dataset = tf.data.Dataset.from_tensor_slices((features, label))
-    print("dataset top 2,,,,,,",list(dataset.as_numpy_iterator())[0:2])
-    dataset = dataset.shuffle(100, reshuffle_each_iteration=False)
-    # print("shuffle top 2,,,,,",list(dataset.as_numpy_iterator())[0:2])
-    dataset = dataset.repeat(num_epochs)
-    # print("repeat top 2,,,,,", list(dataset.as_numpy_iterator())[0:2])
-    dataset = dataset.batch(batch_size=batch_size)
-    # print("batch top 2,,,,,,", list(dataset.as_numpy_iterator())[0:2])
 
-    return dataset.as_numpy_iterator()
+    def input_fc():
+        print(features.shape)
+        #特征和标识配对
+        dataset = tf.data.Dataset.from_tensor_slices((features, label))
+        #把数据打散，reshuffle_each_iteration是否重新打散在每次迭代中
+        dataset = dataset.shuffle(100, reshuffle_each_iteration=False)
+        #复制数据几份
+        dataset = dataset.repeat(num_epochs)
+        #对数据进行划分
+        dataset = dataset.batch(batch_size=batch_size)
+
+        return next(dataset.__iter__())
+
+    return input_fc
 
 
 class HParams(object):
