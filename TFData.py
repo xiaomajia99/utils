@@ -8,7 +8,8 @@ import urllib
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.model_selection import train_test_split
 
 def test():
     logging.debug("tf data test start")
@@ -177,6 +178,30 @@ def transformation_data(file_path: str, field_hander: FieldHandler, label=None):
         return features, labels
     return features, None
 
+def dictTrainData(path : str=None, class_cols=None, continue_cols=None, label_col=None):
+    std = StandardScaler()
+    df = pd.read_csv(path)
+    df_class_x = df[class_cols].fillna("-1").astype("str")
+    df_class_x = pd.get_dummies(df_class_x)
+    df_continue_x = pd.DataFrame(std.fit_transform(df[continue_cols].values))
+    df_continue_x.columns = continue_cols
+    data_x = pd.concat([df_class_x, df_continue_x], axis=1)
+    data_y = df[label_col].astype("float64").values
+    data_x = data_x.to_dict("records")
+    ret_data = []
+    for data in data_x:
+        val = {}
+        for k,v in data.items():
+            if v != 0:
+                val[k] = v
+        ret_data.append(val)
+    train_x, test_x, train_y, test_y = train_test_split(ret_data, data_y, test_size=0.1, random_state=13)
+    vec = DictVectorizer()
+    train_x = vec.fit_transform(train_x)
+    test_x = vec.transform(test_x)
+    return train_x, test_x, train_y, test_y
+
+
 
 def dataGenerate(path=None):
     df = pd.read_csv(path)
@@ -229,6 +254,15 @@ def createTrainInputFN(features, label, batch_size=3, num_epochs=10):
 
     return input_fc
 
+
+def getAccurate(pre_y, test_y):
+    acu_num = 0
+    for i in range(len(pre_y)):
+        if (pre_y[i] >= 0.5 and test_y[i] >= 0.5) or (pre_y[i] < 0.5 and test_y[i] < 0.5):
+            acu_num += 1
+        else:
+            continue
+    return acu_num / len(pre_y)
 
 class HParams(object):
     def __init__(self
