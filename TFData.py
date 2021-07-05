@@ -178,14 +178,24 @@ def transformation_data(file_path: str, field_hander: FieldHandler, label=None):
         return features, labels
     return features, None
 
-def dictTrainData(path : str=None, class_cols=None, continue_cols=None, label_col=None):
+def dictTrainData(path : str=None, class_cols=None, continue_cols=None, label_col=None, test_rate=None):
     std = StandardScaler()
-    df = pd.read_csv(path)
-    df_class_x = df[class_cols].fillna("-1").astype("str")
+    # 读取数据
+    df = pd.read_csv(path).astype("str")
+    df1 = df[df.click == "1"]
+    df0 = df[df.click == "0"].sample(n=df1.shape[0], random_state=1)
+    df = pd.concat([df0,df1], axis=0)
+    df.index = range(0, df.shape[0])
+    # 对缺失值填充"-1"
+    df_class_x = df[class_cols].fillna("-1")
+    # 把dataframe的类型数据变成one-hot编码
     df_class_x = pd.get_dummies(df_class_x)
-    df_continue_x = pd.DataFrame(std.fit_transform(df[continue_cols].values))
+    # 把连续的数据进行标准化
+    df_continue_x = pd.DataFrame(std.fit_transform(df[continue_cols].astype("float64").values))
     df_continue_x.columns = continue_cols
+    # 合并离散列和连续列
     data_x = pd.concat([df_class_x, df_continue_x], axis=1)
+    print(data_x.shape)
     data_y = df[label_col].astype("float64").values
     data_x = data_x.to_dict("records")
     ret_data = []
@@ -195,7 +205,8 @@ def dictTrainData(path : str=None, class_cols=None, continue_cols=None, label_co
             if v != 0:
                 val[k] = v
         ret_data.append(val)
-    train_x, test_x, train_y, test_y = train_test_split(ret_data, data_y, test_size=0.1, random_state=13)
+    train_x, test_x, train_y, test_y = train_test_split(ret_data, data_y, test_size=test_rate, random_state=1300)
+
     vec = DictVectorizer()
     train_x = vec.fit_transform(train_x)
     test_x = vec.transform(test_x)
@@ -257,12 +268,15 @@ def createTrainInputFN(features, label, batch_size=3, num_epochs=10):
 
 def getAccurate(pre_y, test_y):
     acu_num = 0
+    plus_num = 0
     for i in range(len(pre_y)):
         if (pre_y[i] >= 0.5 and test_y[i] >= 0.5) or (pre_y[i] < 0.5 and test_y[i] < 0.5):
             acu_num += 1
         else:
-            continue
-    return acu_num / len(pre_y)
+            pass
+        if test_y[i] >= 0.5:
+            plus_num += 1.0
+    return acu_num / len(pre_y), plus_num / len(pre_y)
 
 class HParams(object):
     def __init__(self
@@ -314,3 +328,4 @@ class HParams(object):
 
 if __name__ == "__main__":
     test()
+    exit(1)
